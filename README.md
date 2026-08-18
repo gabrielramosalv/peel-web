@@ -4,7 +4,7 @@
 
 Fornece uma camada portátil para a criação de aplicações web e servidores HTTP rápidos, sem depender de grandes servidores ou containers.
 
-- ⚡ **Leve e rápido**: sem dependência de servidores pesados.
+- ⚡ **Leve rápido**: sem dependência de servidores pesados.
 - 📦 **Portável**: roda em qualquer dispositivo com Java, de embarcados a desktops.
 - 🔌 **Simplicidade na configuração**: inicialização simples via `main()`.
 - 🎯 **Enxuto**: inspirado em frameworks minimalistas como Express.js.
