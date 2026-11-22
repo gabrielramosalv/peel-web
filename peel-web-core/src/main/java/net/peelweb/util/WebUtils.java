@@ -93,23 +93,33 @@ public class WebUtils {
         return formData;
     }
 
+    /** Query parameters of a raw URI, URL-decoded (UTF-8). A repeated name keeps the last value. */
     public static Map<String, String> getQueryParameters(String URI) {
-        String[] querySplit = URI.split("\\?");
-        if (querySplit.length == 1) {
+        int q = URI.indexOf('?');
+        if (q < 0 || q == URI.length() - 1) {
             return new HashMap<>();
         }
 
         Map<String, String> parameters = new HashMap<>();
-        for (String param : querySplit[1].split("&")) {
-            String[] entry = param.split("=");
-            if (entry.length > 1) {
-                parameters.put(entry[0], entry[1]);
-            } else {
-                parameters.put(entry[0], "");
+        for (String param : URI.substring(q + 1).split("&")) {
+            if (param.isEmpty()) {
+                continue;
             }
+            int eq = param.indexOf('=');
+            String name = eq < 0 ? param : param.substring(0, eq);
+            String value = eq < 0 ? "" : param.substring(eq + 1);
+            parameters.put(decode(name), decode(value));
         }
 
         return parameters;
+    }
+
+    private static String decode(String s) {
+        try {
+            return java.net.URLDecoder.decode(s, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return s; // malformed escape: keep the raw text
+        }
     }
 
     public static String getPureResourceMapping(String uri) {

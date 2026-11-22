@@ -39,11 +39,25 @@ public class EndpointTracker {
         return null;
     }
 
+    /** True when some endpoint has this path with another HTTP method (to answer 405 instead of 404). */
+    public boolean matchesAnyMethod(StandardRequest standardRequest) {
+        for (Endpoint endpoint : this.resourceContext.getEndpoints()) {
+            if (this.matches(endpoint, standardRequest.getUri(), new HashMap<>())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean matches(Endpoint endpoint, String requestUri, Map<String, String> pathVariables) {
         if (this.contextPath != null && !this.contextPath.isEmpty()) {
             requestUri = requestUri.substring(requestUri.indexOf(this.contextPath) + this.contextPath.length());
         }
 
+        int query = requestUri.indexOf('?');
+        if (query >= 0) {
+            requestUri = requestUri.substring(0, query);
+        }
         requestUri = getPureResourceMapping(requestUri);
         String completeMapping = getPureResourceMapping(this.resourceContext.getBaseMapping()) + getPureResourceMapping(
                 endpoint.getMapping());

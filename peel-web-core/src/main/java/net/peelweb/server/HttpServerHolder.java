@@ -6,4 +6,9 @@ public interface HttpServerHolder {
 
     void stop();
 
+    /** Port actually bound, or -1 before start. */
+    default int getBoundPort() {
+        return -1;
+    }
+
 }

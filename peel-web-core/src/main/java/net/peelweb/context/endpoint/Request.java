@@ -26,4 +26,7 @@ public interface Request {
 
     String getUri();
 
+    /** Value of a request header (case-insensitive name), or null. */
+    String getHeader(String name);
+
 }

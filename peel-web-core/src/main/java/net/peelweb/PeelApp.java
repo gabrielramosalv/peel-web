@@ -12,6 +12,11 @@ public class PeelApp {
         this.serverHolder.start();
     }
 
+    /** Port actually bound; with port(0) the system picks a free one. */
+    public int getPort() {
+        return this.serverHolder.getBoundPort();
+    }
+
     public void stop() {
         this.serverHolder.stop();
     }

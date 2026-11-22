@@ -8,7 +8,12 @@ public class HttpServerHolderFactory {
 
     public static HttpServerHolder release(List<ResourceContext> resourceContexts, String staticContentPath, boolean isExternalStaticContent,
                                            String contextPath, int port) {
-        return new ComSunNetHttpServerHolder(resourceContexts, port, contextPath, staticContentPath, isExternalStaticContent);
+        return release(resourceContexts, staticContentPath, isExternalStaticContent, contextPath, port, ServerOptions.defaults());
+    }
+
+    public static HttpServerHolder release(List<ResourceContext> resourceContexts, String staticContentPath, boolean isExternalStaticContent,
+                                           String contextPath, int port, ServerOptions options) {
+        return new ComSunNetHttpServerHolder(resourceContexts, port, contextPath, staticContentPath, isExternalStaticContent, options);
     }
 
 }

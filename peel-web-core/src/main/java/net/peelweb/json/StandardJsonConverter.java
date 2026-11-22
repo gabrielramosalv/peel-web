@@ -183,104 +183,156 @@ public class StandardJsonConverter implements JsonConverter {
         return elements;
     }
 
-    private String serializeObject(Object obj) {
-        StringBuilder json = new StringBuilder();
-        json.append("{");
+    private static final java.util.concurrent.ConcurrentMap<Class<?>, Field[]> FIELD_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
-        boolean firstField = true;
-        Class<?> currentClass = obj.getClass();
-
-        while (currentClass != null) {
-            Field[] fields = currentClass.getDeclaredFields();
-
-            for (Field field : fields) {
-                field.setAccessible(true);
-
-                Object value;
-                try {
-                    value = field.get(obj);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
+    /** Instance fields to serialize: no static, transient or synthetic fields; superclass fields after the class's own. */
+    private static Field[] fieldsOf(Class<?> type) {
+        return FIELD_CACHE.computeIfAbsent(type, t -> {
+            List<Field> fields = new ArrayList<>();
+            Class<?> current = t;
+            while (current != null && current != Object.class && current != Record.class) {
+                for (Field field : current.getDeclaredFields()) {
+                    int mod = field.getModifiers();
+                    if (java.lang.reflect.Modifier.isStatic(mod) || java.lang.reflect.Modifier.isTransient(mod)
+                            || field.isSynthetic()) {
+                        continue;
+                    }
+                    field.setAccessible(true);
+                    fields.add(field);
                 }
-
-                if (!firstField) {
-                    json.append(",");
-                }
-
-                json.append("\"").append(field.getName()).append("\":");
-                json.append(serializeValue(value));
-
-                firstField = false;
+                current = current.getSuperclass();
             }
-
-            currentClass = currentClass.getSuperclass();
-        }
-
-        json.append("}");
-        return json.toString();
+            return fields.toArray(new Field[0]);
+        });
     }
 
-    private String serializeArray(Object array) {
-        StringBuilder json = new StringBuilder();
-        json.append("[");
+    private void serializeObject(Object obj, StringBuilder json) {
+        json.append('{');
+        boolean firstField = true;
+        for (Field field : fieldsOf(obj.getClass())) {
+            Object value;
+            try {
+                value = field.get(obj);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+            if (!firstField) {
+                json.append(',');
+            }
+            json.append('"');
+            escapeString(field.getName(), json);
+            json.append("\":");
+            serializeValue(value, json);
+            firstField = false;
+        }
+        json.append('}');
+    }
 
+    private void serializeArray(Object array, StringBuilder json) {
+        json.append('[');
         int length = Array.getLength(array);
         for (int i = 0; i < length; i++) {
             if (i > 0) {
-                json.append(",");
+                json.append(',');
             }
-            json.append(serializeValue(Array.get(array, i)));
+            serializeValue(Array.get(array, i), json);
         }
-
-        json.append("]");
-        return json.toString();
+        json.append(']');
     }
 
-    private String serializeMap(Map<?, ?> map) {
-        StringBuilder json = new StringBuilder();
-        json.append("{");
+    private void serializeIterable(Iterable<?> iterable, StringBuilder json) {
+        json.append('[');
+        boolean first = true;
+        for (Object o : iterable) {
+            if (!first) {
+                json.append(',');
+            }
+            serializeValue(o, json);
+            first = false;
+        }
+        json.append(']');
+    }
 
+    private void serializeMap(Map<?, ?> map, StringBuilder json) {
+        json.append('{');
         boolean firstEntry = true;
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (!firstEntry) {
-                json.append(",");
+                json.append(',');
             }
-            json.append("\"").append(this.escapeString(String.valueOf(entry.getKey()))).append("\":");
-            json.append(this.serializeValue(entry.getValue()));
+            json.append('"');
+            escapeString(String.valueOf(entry.getKey()), json);
+            json.append("\":");
+            serializeValue(entry.getValue(), json);
             firstEntry = false;
         }
-
-        json.append("}");
-        return json.toString();
+        json.append('}');
     }
 
-    private String serializeValue(Object value) {
+    private void serializeValue(Object value, StringBuilder json) {
         if (value == null) {
-            return "null";
-        } else if (value instanceof String) {
-            return "\"" + this.escapeString((String) value) + "\"";
+            json.append("null");
+        } else if (value instanceof CharSequence || value instanceof Character) {
+            json.append('"');
+            escapeString(value.toString(), json);
+            json.append('"');
+        } else if (value instanceof Double d && (d.isNaN() || d.isInfinite())) {
+            json.append("null");
+        } else if (value instanceof Float f && (f.isNaN() || f.isInfinite())) {
+            json.append("null");
         } else if (value instanceof Number || value instanceof Boolean) {
-            return value.toString();
-        } else if (value instanceof List) {
-            return serializeArray(((List<?>) value).toArray());
-        } else if (value instanceof Map) {
-            return serializeMap((Map<?, ?>) value);
+            json.append(value);
+        } else if (value instanceof Enum<?> e) {
+            json.append('"');
+            escapeString(e.name(), json);
+            json.append('"');
+        } else if (value instanceof Iterable<?> it) {
+            serializeIterable(it, json);
+        } else if (value instanceof Map<?, ?> m) {
+            serializeMap(m, json);
+        } else if (value instanceof java.util.Optional<?> o) {
+            serializeValue(o.orElse(null), json);
         } else if (value.getClass().isArray()) {
-            return serializeArray(value);
-        } else if (value instanceof Date) {
-            return "\"" + DATE_FORMAT.format(((Date) value).toInstant()) + "\"";
+            serializeArray(value, json);
+        } else if (value instanceof Date d) {
+            json.append('"').append(DATE_FORMAT.format(d.toInstant())).append('"');
+        } else if (value instanceof java.time.temporal.TemporalAccessor) {
+            json.append('"');
+            escapeString(value.toString(), json);
+            json.append('"');
         } else {
-            return serializeObject(value);
+            serializeObject(value, json);
         }
     }
 
-    private String escapeString(String str) {
-        return str.replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    /** Escapes a string as RFC 8259 asks: quote, backslash and every control character. */
+    private static void escapeString(String str, StringBuilder json) {
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            switch (c) {
+                case '"' -> json.append("\\\"");
+                case '\\' -> json.append("\\\\");
+                case '\n' -> json.append("\\n");
+                case '\r' -> json.append("\\r");
+                case '\t' -> json.append("\\t");
+                case '\b' -> json.append("\\b");
+                case '\f' -> json.append("\\f");
+                default -> {
+                    if (c < 0x20) {
+                        json.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        json.append(c);
+                    }
+                }
+            }
+        }
     }
 
     @Override
     public String toJson(Object o) {
-        return serializeValue(o);
+        StringBuilder json = new StringBuilder(256);
+        serializeValue(o, json);
+        return json.toString();
     }
 
     @Override

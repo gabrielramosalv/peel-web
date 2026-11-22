@@ -25,14 +25,28 @@ public class StandardRequest implements Request {
 
     private Map<String, String> pathVariables;
 
+    private final Map<String, String> headers;
+
     public StandardRequest(HttpMethod method, String uri, Object body, Map<String, String> queryParameters,
                            Map<String, Object> formData) {
+        this(method, uri, body, queryParameters, formData, Map.of());
+    }
+
+    public StandardRequest(HttpMethod method, String uri, Object body, Map<String, String> queryParameters,
+                           Map<String, Object> formData, Map<String, String> headers) {
         this.method = method;
         this.uri = uri;
         this.body = body;
         this.queryParameters = queryParameters;
         this.formData = formData;
         this.pathVariables = new HashMap<>();
+        this.headers = new HashMap<>();
+        headers.forEach((k, v) -> this.headers.put(k.toLowerCase(java.util.Locale.ROOT), v));
+    }
+
+    @Override
+    public String getHeader(String name) {
+        return name == null ? null : this.headers.get(name.toLowerCase(java.util.Locale.ROOT));
     }
 
     public boolean parametersIsEmpty() {

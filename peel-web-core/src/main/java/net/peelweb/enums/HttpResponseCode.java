@@ -32,6 +32,8 @@ public enum HttpResponseCode {
     NOT_FOUND(404, "Not Found"),
     METHOD_NOT_ALLOWED(405, "Method Not Allowed"),
     CONFLICT(409, "Conflict"),
+    GONE(410, "Gone"),
+    PAYLOAD_TOO_LARGE(413, "Payload Too Large"),
     UNSUPPORTED_MEDIA_TYPE(415, "Unsupported Media Type"),
     TOO_MANY_REQUESTS(429, "Too Many Requests"),
 
