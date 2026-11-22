@@ -54,6 +54,15 @@ class ComSunNetHttpServerHolderTest {
         }
     }
 
+    @Controller("/api")
+    public static class OtherController {
+
+        @Mapping(value = "/items/{id}/history", method = HttpMethod.GET)
+        public Response history(Request request) {
+            return Responses.ok(Map.of("history", request.getPathVariable("id")));
+        }
+    }
+
     public static class Body {
         private int value;
     }
@@ -63,7 +72,7 @@ class ComSunNetHttpServerHolderTest {
 
     @BeforeEach
     void setUp() {
-        app = PeelAppBuilder.run(b -> b.port(0).addController(new ExampleController()));
+        app = PeelAppBuilder.run(b -> b.port(0).addController(new ExampleController()).addController(new OtherController()));
         app.start();
         client = HttpClient.newHttpClient();
     }
@@ -149,5 +158,15 @@ class ComSunNetHttpServerHolderTest {
         HttpResponse<String> r = get("/api/items/a");
         assertEquals("*", r.headers().firstValue("Access-Control-Allow-Origin").orElse(null));
         assertEquals("ETag", r.headers().firstValue("Access-Control-Expose-Headers").orElse(null));
+    }
+
+    @Test
+    @DisplayName("Deve atender dois controllers com o mesmo prefixo, cada rota no seu")
+    void shouldServeControllersSharingTheBaseMapping() throws Exception {
+        HttpResponse<String> r = get("/api/items/a/history");
+        assertEquals(200, r.statusCode());
+        assertEquals("{\"history\":\"a\"}", r.body());
+        assertEquals(200, get("/api/items/a").statusCode());
+        assertEquals(404, get("/api/items/a/other").statusCode());
     }
 }

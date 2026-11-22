@@ -144,13 +144,23 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
         final ResponseAssemblerFactory responseAssemblerFactory = new ResponseAssemblerFactory(this.staticContentPath,
                 this.isExternalStaticContent);
 
+        // controllers that share a base mapping share one server context (the JDK server refuses two
+        // contexts with the same path); each request is matched against all of them, in registration order
+        Map<String, List<ResourceContext>> byMapping = new java.util.LinkedHashMap<>();
         for (ResourceContext resourceContext : this.resourceContexts) {
-            EndpointTracker endpointTracker = new EndpointTracker(resourceContext, this.contextPath);
+            byMapping.computeIfAbsent(this.mountResourceContextMapping(resourceContext), k -> new java.util.ArrayList<>())
+                    .add(resourceContext);
+        }
 
-            String mapping = this.mountResourceContextMapping(resourceContext);
-            this.httpServer.createContext(mapping, exchange -> {
+        for (Map.Entry<String, List<ResourceContext>> entry : byMapping.entrySet()) {
+            List<ResourceContext> contexts = entry.getValue();
+            List<EndpointTracker> trackers = new java.util.ArrayList<>();
+            for (ResourceContext resourceContext : contexts) {
+                trackers.add(new EndpointTracker(resourceContext, this.contextPath));
+            }
+            this.httpServer.createContext(entry.getKey(), exchange -> {
                 try {
-                    this.handle(resourceContext, endpointTracker, responseAssemblerFactory, exchange);
+                    this.handle(contexts.get(0), trackers, responseAssemblerFactory, exchange);
                 } catch (Throwable t) {
                     LOGGER.log(Level.SEVERE, "Error handling " + exchange.getRequestMethod() + " " + exchange.getRequestURI(), t);
                     try {
@@ -167,7 +177,7 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
         this.httpServer.start();
     }
 
-    private void handle(ResourceContext resourceContext, EndpointTracker endpointTracker,
+    private void handle(ResourceContext resourceContext, List<EndpointTracker> endpointTrackers,
                         ResponseAssemblerFactory responseAssemblerFactory, HttpExchange exchange) throws IOException {
         String requestMethod = exchange.getRequestMethod();
 
@@ -205,7 +215,15 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
 
         StandardRequest standardRequest = new StandardRequest(method, uri, body, queryParameters, formData,
                 headersOf(exchange));
-        Endpoint endpoint = endpointTracker.find(standardRequest);
+        Endpoint endpoint = null;
+        boolean otherMethod = false;
+        for (EndpointTracker endpointTracker : endpointTrackers) {
+            endpoint = endpointTracker.find(standardRequest);
+            if (endpoint != null) {
+                break;
+            }
+            otherMethod = otherMethod || endpointTracker.matchesAnyMethod(standardRequest);
+        }
 
         Response response;
         if (endpoint != null) {
@@ -219,7 +237,7 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
             if (response == null) {
                 response = Responses.mount(HttpResponseCode.NOT_IMPLEMENTED);
             }
-        } else if (endpointTracker.matchesAnyMethod(standardRequest)) {
+        } else if (otherMethod) {
             response = Responses.error(HttpResponseCode.METHOD_NOT_ALLOWED, "method not allowed");
         } else {
             HttpContentType httpContentType = HttpContentType.fromUri(uri);
