@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: peel-web-demo
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /peel/health

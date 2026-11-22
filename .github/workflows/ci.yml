@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn -B clean test
+
+  sonar:
+    name: Análise SonarQube
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      sonarqube:
+        image: sonarqube:26.9.0.129388-community
+        ports:
+          - 9000:9000
+        env:
+          SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    env:
+      SONAR_ADMIN_PASSWORD: PeelWeb-2026-Run
+      SONAR_HOST_URL: http://localhost:9000
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Aguardar SonarQube
+        run: |
+          status=""
+          for attempt in {1..90}; do
+            status=$(curl -fsS "$SONAR_HOST_URL/api/system/status" | jq -r .status || true)
+            if [ "$status" = "UP" ]; then
+              break
+            fi
+            sleep 5
+          done
+          test "$status" = "UP"
+      - name: Criar token de análise
+        run: |
+          curl -fsS -u admin:admin -X POST "$SONAR_HOST_URL/api/users/change_password" -d login=admin -d previousPassword=admin --data-urlencode "password=$SONAR_ADMIN_PASSWORD"
+          response=$(curl -fsS -u "admin:$SONAR_ADMIN_PASSWORD" -X POST "$SONAR_HOST_URL/api/user_tokens/generate" --data-urlencode "name=github-actions-$GITHUB_RUN_ID")
+          token=$(printf '%s' "$response" | jq -r .token)
+          test -n "$token"
+          test "$token" != "null"
+          echo "::add-mask::$token"
+          echo "SONAR_TOKEN=$token" >> "$GITHUB_ENV"
+      - name: Executar análise estática
+        run: mvn -B clean test jacoco:report org.sonarsource.scanner.maven:sonar-maven-plugin:5.5.0.6356:sonar
+
+  integration-tests:
+    name: Testes de integração
+    runs-on: ubuntu-latest
+    needs: sonar
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn -B clean verify -DskipUnitTests=true
+
+  docker-build:
+    name: Build da imagem Docker
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construir imagem
+        run: docker build --tag "peel-web:$GITHUB_SHA" .
+      - name: Validar container
+        run: |
+          container_id=$(docker run --detach --publish 18080:8080 "peel-web:$GITHUB_SHA")
+          trap 'docker rm --force "$container_id"' EXIT
+          response=""
+          for attempt in {1..30}; do
+            response=$(curl -fsS http://127.0.0.1:18080/peel/health || true)
+            if [ "$response" = '{"status":"UP"}' ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$response" = '{"status":"UP"}'
