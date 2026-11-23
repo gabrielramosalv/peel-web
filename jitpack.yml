@@ -1,0 +1,4 @@
+jdk:
+  - openjdk21
+install:
+  - mvn -B install -DskipTests -pl peel-web-core -am

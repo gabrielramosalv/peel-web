@@ -85,123 +85,79 @@ public class MyController {
 
 ---
 
+## Uso como dependência
+
+O `peel-web-core` é publicado pelo [JitPack](https://jitpack.io) a cada tag `vX.Y.Z`. Requer Java 21.
+
+Gradle:
+
+```groovy
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+dependencies {
+    implementation 'com.github.gabrielramosalv.peel-web:peel-web-core:v1.1.1'
+}
+```
+
+Maven:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.gabrielramosalv.peel-web</groupId>
+    <artifactId>peel-web-core</artifactId>
+    <version>v1.1.1</version>
+</dependency>
+```
+
+## Threads
+
+Cada requisição roda numa virtual thread. Uma requisição que espera (long polling, streaming) não prende thread do sistema. `maxThreads(n)` limita a `n` as requisições atendidas ao mesmo tempo; o padrão, 0, não limita.
+
 ## Estrutura
 
 ```text
 peel-web
-├── peel-web-core
-├── peel-web-demo
-├── .github/workflows/ci.yml
-├── Dockerfile
-├── render.yaml
-└── pom.xml
+├── peel-web-core        # a biblioteca; único artefato publicado
+├── examples/hello       # aplicação de exemplo; não é publicada
+├── .github/workflows    # ci.yml: mvn verify em push na main e em pull request
+├── jitpack.yml          # build do JitPack (Java 21, só o core)
+└── CHANGELOG.md
 ```
 
-- `peel-web-core`: biblioteca reutilizável.
-- `peel-web-demo`: aplicação web de demonstração.
-- `ci.yml`: pipeline de testes, SonarQube, integração e Docker.
-- `render.yaml`: Blueprint de publicação da demonstração.
-
-## Requisitos
-
-- Java 17
-- Maven 3.8 ou superior
-- Docker
-
-## Build e testes
+## Build
 
 ```bash
-mvn clean verify
+mvn clean verify                      # testes unitários e de integração
+mvn clean verify -DskipUnitTests=true # só os de integração
 ```
 
-Somente testes unitários:
-
-```bash
-mvn clean test
-```
-
-Somente testes de integração:
-
-```bash
-mvn clean verify -DskipUnitTests=true
-```
-
-## Execução local
+## Exemplo
 
 ```bash
 mvn clean package
-java -jar peel-web-demo/target/peel-web-demo.jar
+java -jar examples/hello/target/peel-web-demo.jar
+PORT=9090 java -jar examples/hello/target/peel-web-demo.jar
 ```
 
-A porta padrão é `8080`. A variável `PORT` permite escolher outra porta.
-
-```bash
-PORT=9090 java -jar peel-web-demo/target/peel-web-demo.jar
-```
-
-## Endpoints da demonstração
-
-| Método | Endpoint | Resultado |
-| --- | --- | --- |
-| GET | `/peel/health` | Estado da aplicação |
+| Método | Caminho | Descrição |
+|---|---|---|
 | GET | `/peel/demo/hello` | Resposta JSON de exemplo |
 | GET | `/peel/demo/static` | Página estática empacotada |
 
-## Docker
+## Publicar uma versão
 
-```bash
-docker build -t peel-web-demo .
-docker run --rm -p 8080:8080 peel-web-demo
-```
-
-O projeto possui uma biblioteca e uma única aplicação executável. Por isso, a imagem da demonstração é suficiente e não há múltiplos serviços de aplicação que exijam Docker Compose.
-
-## CI/CD
-
-O GitHub Actions executa os estágios na seguinte ordem:
-
-1. testes unitários com JUnit 5;
-2. análise estática em uma instância SonarQube Community temporária;
-3. testes de integração com servidor HTTP real;
-4. build e teste da imagem Docker.
-
-A instância SonarQube nasce dentro do próprio runner. O pipeline cria um token temporário durante a execução e não depende de secrets cadastrados no repositório.
-
-## Git Flow
-
-- `main`: releases estáveis.
-- `develop`: integração das próximas alterações.
-- `feature/*`: novas funcionalidades.
-- `bugfix/*`: correções isoladas.
-- `release/*`: preparação de versões.
-
-Cada branch de feature, bugfix ou release é incorporada por Pull Request.
-
-## Publicação no Render
-
-O `render.yaml` cria um Web Service Docker a partir da branch `main`. O serviço usa `/peel/health` como health check e recebe a variável `PORT` automaticamente do Render.
-
-## Uso da biblioteca
-
-```java
-PeelApp app = PeelAppBuilder.run(builder -> builder
-        .context("/api")
-        .port(8080)
-        .staticContentPath("static")
-        .addController(new MyController())
-);
-
-app.start();
-```
+1. Suba a versão nos `pom.xml` e anote no `CHANGELOG.md`.
+2. Crie a tag `vX.Y.Z` e envie (`git push origin vX.Y.Z`).
+3. O JitPack constrói na primeira vez que alguém pede a versão; o log fica em `https://jitpack.io/#gabrielramosalv/peel-web`.
 
 ## Licença
 
 Este projeto é distribuído sob a licença presente em `LICENSE`.
-
-## Novidades da 1.1.0
-
-- Cabeçalhos de requisição (`Request.getHeader`) e de resposta (`Response.header`), com `ETag` e `304 Not Modified`.
-- Respostas de erro com corpo `{"error": "..."}` em `Responses` (`badRequest`, `notFound`, `gone`, `error`), incluindo `410 Gone` e `413 Payload Too Large`.
-- `ServerOptions` no `PeelAppBuilder`: `host` (padrão `127.0.0.1`), `allowedOrigin` (sem CORS por padrão), `maxThreads` e `maxBodyBytes`.
-- `405 Method Not Allowed` quando o caminho existe com outro método; parâmetros de consulta decodificados.
-- Conversor JSON com records, enums pelo nome, `Optional`, datas, escape conforme a RFC 8259 e sem campos estáticos ou transientes.
