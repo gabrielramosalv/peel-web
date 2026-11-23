@@ -134,11 +134,12 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
             throw new RuntimeException(e);
         }
 
-        this.executorService = Executors.newFixedThreadPool(Math.max(1, this.options.maxThreads()), r -> {
-            Thread t = new Thread(r, "peel-web-http");
-            t.setDaemon(true);
-            return t;
-        });
+        // one virtual thread per request: a request that waits (a long poll, a stream) holds no platform thread;
+        // maxThreads > 0 caps how many requests run at once, and 0 or less means no cap
+        java.util.concurrent.ThreadFactory factory = Thread.ofVirtual().name("peel-web-http-", 0).factory();
+        this.executorService = this.options.maxThreads() > 0
+                ? new BoundedExecutor(Executors.newThreadPerTaskExecutor(factory), this.options.maxThreads())
+                : Executors.newThreadPerTaskExecutor(factory);
         this.httpServer.setExecutor(this.executorService);
 
         final ResponseAssemblerFactory responseAssemblerFactory = new ResponseAssemblerFactory(this.staticContentPath,
