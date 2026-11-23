@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Build do JitPack com Maven 3.9.9: o Maven padrão do JitPack é antigo demais para o failsafe 3.5.2.
+
 ## 1.1.1
 
 - Java 21: cada requisição roda numa virtual thread. `maxThreads` passa a ser o limite de requisições simultâneas, e 0 (o padrão) é sem limite.
