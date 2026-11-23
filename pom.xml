@@ -6,22 +6,19 @@
 
     <groupId>net.peelweb</groupId>
     <artifactId>peel-web</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <packaging>pom</packaging>
 
     <modules>
         <module>peel-web-core</module>
-        <module>peel-web-demo</module>
+        <module>examples/hello</module>
     </modules>
 
     <properties>
         <jacoco.version>0.8.12</jacoco.version>
         <junit.version>5.11.4</junit.version>
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/peel-web-core/target/site/jacoco/jacoco.xml,${maven.multiModuleProjectDirectory}/peel-web-demo/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-        <sonar.projectKey>peel-web</sonar.projectKey>
-        <sonar.projectName>Peel Web</sonar.projectName>
         <surefire.version>3.5.2</surefire.version>
     </properties>
 
@@ -41,11 +38,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.13.0</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.sonarsource.scanner.maven</groupId>
-                    <artifactId>sonar-maven-plugin</artifactId>
-                    <version>5.5.0.6356</version>
                 </plugin>
             </plugins>
         </pluginManagement>

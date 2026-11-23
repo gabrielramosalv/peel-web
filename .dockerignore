@@ -1,9 +1,0 @@
-.git
-.github
-.idea
-.vscode
-**/target
-*.iml
-Dockerfile*
-LICENSE
-README.md
