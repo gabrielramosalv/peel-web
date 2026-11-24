@@ -29,6 +29,8 @@ public class PeelAppBuilder {
 
     private int maxBodyBytes = net.peelweb.server.ServerOptions.defaults().maxBodyBytes();
 
+    private net.peelweb.server.RequestObserver requestObserver;
+
     public PeelAppBuilder() {
         this.resourceContexts = new ArrayList<>();
     }
@@ -81,6 +83,12 @@ public class PeelAppBuilder {
         return this;
     }
 
+    /** Observer called after each response is sent; null (the default) observes nothing. */
+    public PeelAppBuilder requestObserver(net.peelweb.server.RequestObserver observer) {
+        this.requestObserver = observer;
+        return this;
+    }
+
     /** Replaces the JSON converter used by every PeelApp of this JVM. */
     public PeelAppBuilder jsonConverter(net.peelweb.json.JsonConverter converter) {
         net.peelweb.json.JsonConverterManager.getInstance().setConverter(converter);
@@ -100,7 +108,8 @@ public class PeelAppBuilder {
     private PeelApp build() {
         HttpServerHolder httpServerHolder = HttpServerHolderFactory.release(this.resourceContexts,
                 this.staticContentPath, this.isExternalStaticContent, this.contextPath, this.port,
-                new net.peelweb.server.ServerOptions(this.host, this.allowedOrigin, this.maxThreads, this.maxBodyBytes));
+                new net.peelweb.server.ServerOptions(this.host, this.allowedOrigin, this.maxThreads, this.maxBodyBytes,
+                        this.requestObserver));
         return new PeelApp(httpServerHolder);
     }
 

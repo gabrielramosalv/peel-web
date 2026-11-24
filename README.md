@@ -96,7 +96,7 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    implementation 'com.github.gabrielramosalv.peel-web:peel-web-core:v1.1.2'
+    implementation 'com.github.gabrielramosalv.peel-web:peel-web-core:v1.2.0'
 }
 ```
 
@@ -113,7 +113,7 @@ Maven:
 <dependency>
     <groupId>com.github.gabrielramosalv.peel-web</groupId>
     <artifactId>peel-web-core</artifactId>
-    <version>v1.1.2</version>
+    <version>v1.2.0</version>
 </dependency>
 ```
 

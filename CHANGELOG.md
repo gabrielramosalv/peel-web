@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0
+
+- `RequestObserver` no `PeelAppBuilder` (`requestObserver(...)`): chamado uma vez por requisição, depois da resposta enviada, com método, caminho, status e os instantes de entrada no Peel Web e de fim da troca (`System.nanoTime`). Roda na thread da requisição; sem observador (o padrão), nada muda.
+
 ## 1.1.2
 
 - Build do JitPack com Maven 3.9.9: o Maven padrão do JitPack é antigo demais para o failsafe 3.5.2.

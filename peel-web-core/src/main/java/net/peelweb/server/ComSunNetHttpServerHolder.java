@@ -160,6 +160,7 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
                 trackers.add(new EndpointTracker(resourceContext, this.contextPath));
             }
             this.httpServer.createContext(entry.getKey(), exchange -> {
+                long start = System.nanoTime();
                 try {
                     this.handle(contexts.get(0), trackers, responseAssemblerFactory, exchange);
                 } catch (Throwable t) {
@@ -172,6 +173,15 @@ public class ComSunNetHttpServerHolder implements HttpServerHolder {
                     }
                 } finally {
                     exchange.close();
+                    RequestObserver observer = this.options.requestObserver();
+                    if (observer != null) {
+                        try {
+                            observer.requestCompleted(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
+                                    exchange.getResponseCode(), start, System.nanoTime());
+                        } catch (Throwable t) {
+                            LOGGER.log(Level.WARNING, "request observer failed", t);
+                        }
+                    }
                 }
             });
         }
